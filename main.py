@@ -78,6 +78,8 @@ def dump_data(data):
 
 def check_phone(phone_number):
     return phone_number.isdigit()
+
+
 @bot.message_handler(func=lambda message: True)
 def echo_all(message):
     if message.text == "Меню":
@@ -102,6 +104,42 @@ def echo_all(message):
             markup.add(minus_button, name_button, plus_button)
 
         bot.send_message(message.chat.id, "Корзина:", reply_markup=markup)
+
+
+def add_to_cart(client_id, item, ):
+    with open("data.json", 'r', encoding="utf-8") as file:
+        data = json.load(file)
+
+    clients = data.get("clients", [])
+    for client in clients:
+        if client.get("id") == str(client_id):
+            for cart_item in client["id"]:
+                if cart_item[0] == item:
+                    cart_item[1] += 1
+            else:
+                client["cart"].append([item, 1])
+
+    with open("data.json", 'w', encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False)
+
+
+def del_to_cart(client_id, item):
+    with open("data.json", 'r', encoding="utf-8") as file:
+        data = json.load(file)
+
+    clients = data.get("clients", [])
+    for client in clients:
+        if client.get("id") == str(client_id):
+            for cart_item in client["cart"]:
+                if cart_item[0] == item:
+                    cart_item[1] -= 1
+                    if cart_item[1] == 0:
+                        client["cart"].remove(cart_item)
+                        break
+
+
+    with open("data.json", 'w', encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False)
 
 
 def get_cart(client_id):
@@ -133,16 +171,16 @@ def generate_markup(page=0):
     if end_index < len(menu_items):
         markup.add(types.InlineKeyboardButton(text=">>", callback_data=f"page_{page + 1}"))
 
-
     return markup
-
-
-
 
 
 @bot.callback_query_handler(func=lambda call: True)
 def query_handler(call):
+
     bot.answer_callback_query(call.id)
+    if call.data.startswith("minus_"):
+        item = call.data[len("minus_"):]
+        del_to_cart(call.from_user.id,item )
     if call.data.startswith('page_'):
         _, page = call.data.split('_')
         markup = generate_markup(int(page))
@@ -150,6 +188,7 @@ def query_handler(call):
                               text="Выберите элемент:", reply_markup=markup)
     elif call.data.startswith('item_'):
         _, item_index = call.data.split('_')
+        add_to_cart(call.message.chat.id, menu_items[int(item_index)]["name"])
         bot.send_message(call.message.chat.id, f'{menu_items[int(item_index)]["name"]} добавлено в заказ')
 
 
